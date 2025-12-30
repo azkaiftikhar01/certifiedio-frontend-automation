@@ -4,6 +4,11 @@ try { require('dotenv').config(); } catch {}
 
 const DEMO_URL = process.env.DEMO_URL || 'https://demo.certified.io';
 const ETRAINING_URL = process.env.ETRAINING_URL || 'https://etraining.certified.io';
+const ETRAINING_STAGE_URL = process.env.ETRAINING_STAGE_URL || 'https://etraining-stage.certified.io';
+const AIA_URL = process.env.AIA_URL || 'https://aia45775.certified.io';
+const AIA_STAGE_URL = process.env.AIA_STAGE_URL || 'https://aia-stage.certified.io';
+const AIFT_URL = process.env.AIFT_URL || 'https://aift45665.certified.io';
+const AIFT_STAGE_URL = process.env.AIFT_STAGE_URL || 'https://aift-stage.certified.io';
 
 export default defineConfig({
   testDir: './tests',
@@ -29,8 +34,38 @@ export default defineConfig({
     },
     {
       name: 'etraining',
-      testMatch: /etraining.*\.spec\.ts/,
+      testMatch: /etraining-certifications\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], baseURL: ETRAINING_URL },
+      timeout: 300000, // 5 minutes default timeout
+    },
+    {
+      name: 'etraining-stage',
+      testMatch: /etraining-stage-certifications\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], baseURL: ETRAINING_STAGE_URL },
+      timeout: 300000, // 5 minutes default timeout
+    },
+    {
+      name: 'aia',
+      testMatch: /aia-certifications\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], baseURL: AIA_URL },
+      timeout: 300000, // 5 minutes default timeout
+    },
+    {
+      name: 'aia-stage',
+      testMatch: /aia-stage-certifications\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], baseURL: AIA_STAGE_URL },
+      timeout: 300000, // 5 minutes default timeout
+    },
+    {
+      name: 'aift',
+      testMatch: /aift-certifications\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], baseURL: AIFT_URL },
+      timeout: 300000, // 5 minutes default timeout
+    },
+    {
+      name: 'aift-stage',
+      testMatch: /aift-stage-certifications\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], baseURL: AIFT_STAGE_URL },
       timeout: 300000, // 5 minutes default timeout
     },
   ],

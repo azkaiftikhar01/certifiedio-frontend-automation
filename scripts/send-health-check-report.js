@@ -42,6 +42,11 @@ function buildHealthCheckReport() {
   const {
     DEMO_URL = 'https://demo.certified.io',
     ETRAINING_URL = 'https://etraining45512.certified.io',
+    ETRAINING_STAGE_URL = 'https://etraining-stage.certified.io',
+    AIA_URL = 'https://aia45775.certified.io',
+    AIA_STAGE_URL = 'https://aia-stage.certified.io',
+    AIFT_URL = 'https://aift45665.certified.io',
+    AIFT_STAGE_URL = 'https://aift-stage.certified.io',
   } = process.env;
 
   const environments = [
@@ -58,6 +63,41 @@ function buildHealthCheckReport() {
       summaryFile: 'report/etraining-summary.json',
       url: ETRAINING_URL,
       details: 'Validates 3 certification cards (with subtitles)',
+    },
+    {
+      name: 'ETRAINING-STAGE',
+      file: 'report/etraining-stage-results.json',
+      summaryFile: 'report/etraining-stage-summary.json',
+      url: ETRAINING_STAGE_URL,
+      details: 'Validates 3 certification cards (with subtitles)',
+    },
+    {
+      name: 'AIA',
+      file: 'report/aia-results.json',
+      summaryFile: 'report/aia-summary.json',
+      url: AIA_URL,
+      details: 'Validates 6 certification options (BSB/CHC qualifications)',
+    },
+    {
+      name: 'AIA-STAGE',
+      file: 'report/aia-stage-results.json',
+      summaryFile: 'report/aia-stage-summary.json',
+      url: AIA_STAGE_URL,
+      details: 'Validates 6 certification options (BSB/CHC qualifications)',
+    },
+    {
+      name: 'AIFT',
+      file: 'report/aift-results.json',
+      summaryFile: 'report/aift-summary.json',
+      url: AIFT_URL,
+      details: 'Validates 4 certification options (Building & Construction)',
+    },
+    {
+      name: 'AIFT-STAGE',
+      file: 'report/aift-stage-results.json',
+      summaryFile: 'report/aift-stage-summary.json',
+      url: AIFT_STAGE_URL,
+      details: 'Validates 4 certification options (Building & Construction)',
     },
   ];
 

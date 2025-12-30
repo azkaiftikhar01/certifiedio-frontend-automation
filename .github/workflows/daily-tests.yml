@@ -40,6 +40,41 @@ jobs:
           npx playwright test --project=etraining
           cp report/results.json report/etraining-results.json
 
+      - name: Run ETRAINING-STAGE Environment Tests
+        env:
+          ETRAINING_STAGE_URL: ${{ vars.ETRAINING_STAGE_URL || 'https://etraining-stage.certified.io' }}
+        run: |
+          npx playwright test --project=etraining-stage
+          cp report/results.json report/etraining-stage-results.json
+
+      - name: Run AIA Environment Tests
+        env:
+          AIA_URL: ${{ vars.AIA_URL || 'https://aia45775.certified.io' }}
+        run: |
+          npx playwright test --project=aia
+          cp report/results.json report/aia-results.json
+
+      - name: Run AIA-STAGE Environment Tests
+        env:
+          AIA_STAGE_URL: ${{ vars.AIA_STAGE_URL || 'https://aia-stage.certified.io' }}
+        run: |
+          npx playwright test --project=aia-stage
+          cp report/results.json report/aia-stage-results.json
+
+      - name: Run AIFT Environment Tests
+        env:
+          AIFT_URL: ${{ vars.AIFT_URL || 'https://aift45665.certified.io' }}
+        run: |
+          npx playwright test --project=aift
+          cp report/results.json report/aift-results.json
+
+      - name: Run AIFT-STAGE Environment Tests
+        env:
+          AIFT_STAGE_URL: ${{ vars.AIFT_STAGE_URL || 'https://aift-stage.certified.io' }}
+        run: |
+          npx playwright test --project=aift-stage
+          cp report/results.json report/aift-stage-results.json
+
       - name: Generate Combined Report
         run: |
           node scripts/generate-combined-report.js

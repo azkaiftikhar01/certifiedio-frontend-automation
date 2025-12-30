@@ -1,0 +1,249 @@
+import { test, expect } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+
+const AIFT_EXPECTED_CERTIFICATIONS = [
+  {
+    title: 'Certificate III in Carpentry',
+    subtitle: 'Certificate III in Carpentry',
+  },
+  {
+    title: 'Certificate III in Wall and Ceiling Lining',
+    subtitle: 'Certificate III in Wall and Ceiling Lining',
+  },
+  {
+    title: 'Certificate III in Wall and Floor Tiling',
+    subtitle: 'Certificate III in Wall and Floor Tiling',
+  },
+  {
+    title: 'Certificate IV in Building and Construction',
+    subtitle: 'Certificate IV in Building and Construction',
+  },
+] as const;
+
+const DROPDOWN_SELECTOR =
+  'div[class*="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-light-grey rounded-2xl shadow-2xl z-10"]';
+
+test.describe('AIFT Environment - Certification Dropdown Validation', () => {
+  test('verify AIFT certification dropdown shows all expected values', async ({ page }) => {
+    // Very flexible timeout - allow up to 5 minutes for slow environments
+    test.setTimeout(300000);
+    const summary = {
+      environment: 'AIFT',
+      status: 'pending',
+      expectedCertifications: AIFT_EXPECTED_CERTIFICATIONS.map((cert) => cert.title),
+      expectedSubtitles: AIFT_EXPECTED_CERTIFICATIONS.map((cert) => cert.subtitle),
+      actualCertifications: [] as string[],
+      actualSubtitles: [] as string[],
+      missingCertifications: [] as string[],
+      missingSubtitles: [] as string[],
+      extraCertifications: [] as string[],
+    };
+    const summaryPath = path.resolve('report', 'aift-summary.json');
+
+    // Set very flexible timeouts for all operations
+    page.setDefaultNavigationTimeout(180000); // 3 minutes for navigation
+    page.setDefaultTimeout(60000); // 1 minute for other operations
+
+    // Navigate - use domcontentloaded instead of networkidle (more reliable)
+    console.log('AIFT: Navigating to registration page...');
+    await page.goto('/new', { waitUntil: 'domcontentloaded', timeout: 180000 });
+
+    // Wait for page to be interactive (don't wait for networkidle - it may never happen)
+    await page.waitForLoadState('domcontentloaded');
+
+    try {
+      console.log('AIFT: Filling personal information...');
+      // Fill personal info to get to step 2 with retries
+      await page.fill('input[placeholder="First name"]', 'Test', { timeout: 60000 });
+      await page.fill('input[placeholder="Last name"]', 'User', { timeout: 60000 });
+      await page.fill('input[placeholder="Email address"]', 'test@example.com', { timeout: 60000 });
+      await page.fill('input[placeholder="Phone number"]', '0412345678', { timeout: 60000 });
+      await page.fill('input[type="password"]', 'TestPass123!', { timeout: 60000 });
+
+      // Click continue and wait for navigation
+      console.log('AIFT: Clicking Continue button...');
+      await page.click('button:has-text("Continue")', { timeout: 60000 });
+
+      // Wait for step 2 to load with very flexible timeout
+      console.log('AIFT: Waiting for step 2 to load...');
+      await page.waitForSelector('h1:has-text("Choose Your Path")', {
+        state: 'visible',
+        timeout: 180000
+      });
+
+      // Give a moment for the page to settle (don't wait for networkidle - unreliable)
+      await page.waitForTimeout(2000);
+
+      // Open certification dropdown
+      console.log('AIFT: Opening certification dropdown...');
+      await page.click('div[class*="cursor-pointer"]:has-text("Select your Qualification...")', {
+        timeout: 60000
+      });
+
+      const dropdown = page.locator(DROPDOWN_SELECTOR);
+
+      // Wait for dropdown to appear
+      await dropdown.waitFor({ state: 'visible', timeout: 60000 });
+
+      console.log('AIFT Environment - Verifying certification dropdown values...');
+
+      // Wait for certifications to load using polling approach (more reliable than networkidle)
+      console.log('AIFT: Waiting for certifications to load...');
+      let certificationsLoaded = false;
+      const maxWaitTime = 180000; // 3 minutes max
+      const startTime = Date.now();
+      const pollInterval = 2000; // Check every 2 seconds
+
+      while (!certificationsLoaded && (Date.now() - startTime) < maxWaitTime) {
+        const h3Elements = await dropdown.locator('h3').all();
+        const IGNORE_TEXTS = new Set(['Cancel', 'Back', 'Continue']);
+        const validTitles = [];
+
+        for (const element of h3Elements) {
+          const text = await element.textContent();
+          if (text && text.trim() && !IGNORE_TEXTS.has(text.trim())) {
+            validTitles.push(text.trim());
+          }
+        }
+
+        if (validTitles.length > 0) {
+          console.log(`AIFT: Found ${validTitles.length} certifications after ${Math.round((Date.now() - startTime) / 1000)}s`);
+          certificationsLoaded = true;
+        } else {
+          await page.waitForTimeout(pollInterval);
+        }
+      }
+
+      if (!certificationsLoaded) {
+        throw new Error(
+          'AIFT certifications did not load: no valid <h3> titles found in dropdown within 180s. ' +
+          'Check backend/API or UI for errors (API may be taking too long to respond).'
+        );
+      }
+
+      // Give a moment for all certifications to fully render
+      await page.waitForTimeout(1000);
+
+      // Capture actual certification titles (h3) with retry logic
+      const collectCertifications = async (retries = 5) => {
+        for (let i = 0; i < retries; i++) {
+          const titleTexts = await dropdown.locator('h3').allTextContents();
+          const IGNORE_TEXTS = new Set(['Cancel', 'Back', 'Continue']);
+          const validTitles = titleTexts
+            .map((text) => text.trim())
+            .filter(Boolean)
+            .filter((text) => !IGNORE_TEXTS.has(text));
+
+          if (validTitles.length > 0) {
+            summary.actualCertifications = validTitles;
+            return;
+          }
+
+          if (i < retries - 1) {
+            console.log(`AIFT: Retrying certification collection (attempt ${i + 1}/${retries})...`);
+            await page.waitForTimeout(2000);
+          }
+        }
+      };
+
+      await collectCertifications();
+
+      // Capture secondary/subtitle texts (commonly <p> tags)
+      const subtitleCandidates = await dropdown.locator('p').allTextContents();
+      summary.actualSubtitles = subtitleCandidates.map((text) => text.trim()).filter(Boolean);
+
+      console.log(`📋 AIFT - Found ${summary.actualCertifications.length} certification titles in dropdown`);
+      console.log(`📋 AIFT - Titles: ${summary.actualCertifications.join(', ')}`);
+      console.log(`📋 AIFT - Subtitles: ${summary.actualSubtitles.join(', ')}`);
+
+      summary.extraCertifications = summary.actualCertifications.filter(
+        (actual) =>
+          !summary.expectedCertifications.some(
+            (expected) =>
+              actual.includes(expected) ||
+              expected.includes(actual) ||
+              actual.toLowerCase() === expected.toLowerCase()
+          )
+      );
+
+      // Verify each certification title/subtitle pair is visible in the dropdown with retries
+      for (const cert of AIFT_EXPECTED_CERTIFICATIONS) {
+        console.log(`AIFT: Checking for certification: ${cert.title}`);
+        const titleLocator = dropdown.locator('h3', { hasText: cert.title }).first();
+
+        // Wait for title with retries
+        let titleCount = 0;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          titleCount = await titleLocator.count();
+          if (titleCount > 0) break;
+          if (attempt < 4) {
+            console.log(`AIFT: Retrying title check for ${cert.title} (attempt ${attempt + 1}/5)...`);
+            await page.waitForTimeout(2000);
+          }
+        }
+
+        if (titleCount === 0) {
+          summary.missingCertifications.push(cert.title);
+          await expect(
+            titleLocator,
+            `AIFT certification missing: ${cert.title}\nTitles found: ${
+              summary.actualCertifications.length > 0 ? summary.actualCertifications.join(', ') : 'none'
+            }`
+          ).toHaveCount(1);
+        } else {
+          await expect(titleLocator).toBeVisible({ timeout: 30000 });
+          console.log(`✅ AIFT Found: ${cert.title}`);
+        }
+
+        // Check subtitle with retries
+        const subtitleLocator = dropdown.locator(`text=${cert.subtitle}`).first();
+        let subtitleVisible = false;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          subtitleVisible = await subtitleLocator.isVisible({ timeout: 30000 }).catch(() => false);
+          if (subtitleVisible) break;
+          if (attempt < 4) {
+            console.log(`AIFT: Retrying subtitle check for ${cert.subtitle} (attempt ${attempt + 1}/5)...`);
+            await page.waitForTimeout(2000);
+          }
+        }
+
+        if (!subtitleVisible) {
+          summary.missingSubtitles.push(cert.subtitle);
+          await expect(
+            subtitleVisible,
+            `AIFT subtitle missing: ${cert.subtitle}\nSubtitles found: ${
+              summary.actualSubtitles.length > 0 ? summary.actualSubtitles.join(', ') : 'none'
+            }`
+          ).toBeTruthy();
+        } else {
+          console.log(`✅ AIFT Subtitle Found: ${cert.subtitle}`);
+        }
+      }
+
+      // Test selecting ONE certification only
+      console.log(`AIFT Testing selection of: ${summary.expectedCertifications[0]}`);
+      await page.click(`text=${summary.expectedCertifications[0]}`, { timeout: 60000 });
+
+      // Just verify the dropdown closed
+      await dropdown.waitFor({ state: 'hidden', timeout: 30000 });
+      console.log(`✅ AIFT Selected: ${summary.expectedCertifications[0]}`);
+
+      // STOP HERE - NO MORE STEPS
+      console.log('✅ AIFT Certification dropdown validation complete - STOPPING HERE');
+
+      // Take screenshot
+      await page.screenshot({ path: 'report/aift-certification-dropdown-validated.png' });
+
+      console.log('AIFT Test completed - no registration attempted');
+      summary.status = 'passed';
+    } catch (error) {
+      summary.status = 'failed';
+      console.error('AIFT Test failed:', error);
+      throw error;
+    } finally {
+      fs.mkdirSync(path.dirname(summaryPath), { recursive: true });
+      fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
+    }
+  });
+});
